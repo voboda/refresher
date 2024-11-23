@@ -1,3 +1,14 @@
+<style>
+html, p, form  {
+  font-family: sans-serif;
+}
+
+form {
+  border: 1px solid #555;
+  padding: 1rem;
+  }
+
+</style>
 <script>
     import { onMount } from 'svelte';
 
@@ -129,7 +140,7 @@
         <label for="url">URL to load:</label><br>
         <input type="url" id="url" bind:value={url} required /><br><br>
 
-        <label for="time">Berlin Time (HH:mm:ss.ms):</label><br>
+        <label for="time">At what local time (HH:mm:ss.ms):</label><br>
         <input type="text" id="time" bind:value={timeInput} required /><br><br>
 
         <button type="submit">Set Timer</button>
