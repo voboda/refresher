@@ -102,7 +102,7 @@
         localStart = new Date();
 
         if (!ntpTime) {
-            alert('Failed to fetch Berlin time. Only local time will be displayed.');
+            alert('Failed to fetch Berlin time. Only local time will be displayed. Or try reloading.');
         }
 
         // Automatically set the default timer
@@ -113,6 +113,7 @@
 <!-- UI -->
 <div>
     <h1>Timed Page Loader with Berlin Time</h1>
+    <p>Disclaimer: I made this quickly, so please test before relying on it!
 
     <p>
         <strong>Local Time:</strong> {formatTimeWithMilliseconds(new Date(), localTimezone)} ({localTimezone})<br>
@@ -135,5 +136,7 @@
     </form>
 
     <p>{message}</p>
+
+    
 </div>
 
