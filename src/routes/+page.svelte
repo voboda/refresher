@@ -1,29 +1,20 @@
-<style>
-html, p, h1, form {
-  font-family: sans-serif;
-}
-
-form {
-border: 1px solid #000;
-padding: 1em;
-}
-</style>
 <script>
     import { onMount } from 'svelte';
 
     // Variables
-    let localClock = '';
     let localTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    let berlinClock = 'Fetching Berlin time...';
     let berlinTimezone = 'Europe/Berlin';
-    let timeDifference = 'Calculating...';
-    let message = '';
 
     let url = 'https://tickets.events.ccc.de/38c3/'; // Default URL
-    let timeInput = '11:59:59.800'; // Default refresh time
+    let timeInput = '11:59:59.800'; // Default Berlin time for refresh
+
     let ntpTime = null;
     let localStart = null;
+    let message = '';
+    let timeDifference = 'Calculating...';
 
+    // Regex for HH:mm:ss.ms
+    const timeRegex = /^([0-1]\d|2[0-3]):([0-5]\d):([0-5]\d)\.(\d{1,3})$/;
 
     // Fetch NTP time for Berlin
     async function fetchNtpTime() {
@@ -56,53 +47,46 @@ padding: 1em;
         return `${formattedTime}.${milliseconds}`;
     }
 
-    // Update clocks and calculate time difference
-    function updateClocks() {
-        const now = new Date();
-        localClock = formatTimeWithMilliseconds(now, localTimezone);
+    // Convert Berlin time input to local time
+    function berlinTimeToLocal(hours, minutes, seconds, milliseconds) {
+        const berlinDate = new Date();
+        berlinDate.setHours(hours, minutes, seconds, milliseconds);
 
-        if (ntpTime) {
-            const ntpNow = new Date(ntpTime.getTime() + (now - localStart));
-            berlinClock = formatTimeWithMilliseconds(ntpNow, berlinTimezone);
+        // Convert Berlin time to UTC
+        const berlinToUTC = berlinDate.toISOString();
 
-            // Calculate and display the time difference in milliseconds
-            const diff = ntpNow.getTime() - now.getTime();
-            const direction = diff > 0 ? 'too slow' : 'too fast';
-            timeDifference = `Note: your clock is ${direction} by ${Math.abs(diff)} ms`;
-        } else {
-            berlinClock = 'Fetching Berlin time...';
-            timeDifference = 'Note: Unable to calculate time difference.';
-        }
+        // Convert UTC to local time
+        const localDate = new Date(berlinToUTC);
+        return localDate;
     }
 
-    // Refresh the page at the specified time
+    // Refresh the page at the specified Berlin time
     function refreshAt(hours, minutes, seconds, milliseconds) {
-        const now = new Date();
-        const then = new Date();
+        // Convert Berlin time input to local time
+        const localRefreshTime = berlinTimeToLocal(hours, minutes, seconds, milliseconds);
 
-        if (
-            now.getHours() > hours ||
-            (now.getHours() === hours && now.getMinutes() > minutes) ||
-            (now.getHours() === hours && now.getMinutes() === minutes && now.getSeconds() >= seconds)
-        ) {
-            then.setDate(now.getDate() + 1);
+        const now = new Date();
+        const timeout = localRefreshTime.getTime() - now.getTime();
+
+        if (timeout <= 0) {
+            // If the time is in the past, set it for the next day
+            localRefreshTime.setDate(localRefreshTime.getDate() + 1);
         }
 
-        then.setHours(hours);
-        then.setMinutes(minutes);
-        then.setSeconds(seconds);
-        then.setMilliseconds(milliseconds);
-
-        const timeout = then.getTime() - now.getTime();
         setTimeout(() => {
             window.location.href = url;
-        }, timeout);
+        }, Math.max(0, timeout));
 
-        message = `Page will load ${url} at ${formatTimeWithMilliseconds(then, localTimezone)} (local time).`;
+        message = `Page will load ${url} at ${formatTimeWithMilliseconds(localRefreshTime, localTimezone)} (local time).`;
     }
 
-    // Set timer and submit default values on page load
-    function setPageLoadTimer() {
+    // Validate time format and set timer
+    function setTimer() {
+        if (!timeRegex.test(timeInput)) {
+            alert('Incorrect time format. Use: HH:mm:ss.ms (e.g., 11:59:59.800)');
+            return;
+        }
+
         const timeParts = timeInput.split(/[:.]/);
         const hours = parseInt(timeParts[0], 10);
         const minutes = parseInt(timeParts[1], 10);
@@ -121,33 +105,35 @@ padding: 1em;
             alert('Failed to fetch Berlin time. Only local time will be displayed.');
         }
 
-        // Start updating the clocks every 50ms
-        setInterval(updateClocks, 50);
-
-        // Set the default timer
-        setPageLoadTimer();
+        // Automatically set the default timer
+        setTimer();
     });
 </script>
 
 <!-- UI -->
 <div>
-    <h1>Load the CCC ticket page at a specific time</h1>
+    <h1>Timed Page Loader with Berlin Time</h1>
 
     <p>
-        <strong>Local Time:</strong> {localClock} ({localTimezone})<br>
-        <strong>Berlin Time:</strong> {berlinClock} ({berlinTimezone})<br>
+        <strong>Local Time:</strong> {formatTimeWithMilliseconds(new Date(), localTimezone)} ({localTimezone})<br>
+        <strong>Berlin Time:</strong> 
+        {ntpTime 
+            ? formatTimeWithMilliseconds(new Date(ntpTime.getTime() + (new Date() - localStart)), berlinTimezone)
+            : 'Fetching Berlin time...'} 
+        ({berlinTimezone})<br>
         {timeDifference}
     </p>
 
-    <form on:submit|preventDefault={() => setPageLoadTimer()}>
+    <form on:submit|preventDefault={setTimer}>
         <label for="url">URL to load:</label><br>
         <input type="url" id="url" bind:value={url} required /><br><br>
 
-        <label for="time">Time (HH:mm:ss.ms):</label><br>
+        <label for="time">Berlin Time (HH:mm:ss.ms):</label><br>
         <input type="text" id="time" bind:value={timeInput} required /><br><br>
 
         <button type="submit">Set Timer</button>
     </form>
 
-    <p><strong>{message}</strong></p>
+    <p>{message}</p>
 </div>
+
