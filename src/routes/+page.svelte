@@ -6,13 +6,14 @@ html, p, form  {
 form {
   border: 1px solid #555;
   padding: 1rem;
-  }
-
+}
 </style>
+
 <script>
     import { onMount } from 'svelte';
 
     // Variables
+    let currentTime = new Date();
     let localTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     let berlinTimezone = 'Europe/Berlin';
 
@@ -22,7 +23,7 @@ form {
     let ntpTime = null;
     let localStart = null;
     let message = '';
-    let timeDifference = 'Calculating...';
+    let timeMessage = '';
 
     // Regex for HH:mm:ss.ms
     const timeRegex = /^([0-1]\d|2[0-3]):([0-5]\d):([0-5]\d)\.(\d{1,3})$/;
@@ -107,33 +108,52 @@ form {
         refreshAt(hours, minutes, seconds, milliseconds);
     }
 
+    // Update clocks and timeMessage
+    function updateClocks() {
+        currentTime = new Date();
+
+        // Update Local and Berlin Time
+        if (ntpTime) {
+            const ntpNow = new Date(ntpTime.getTime() + (currentTime - localStart));
+            const diff = ntpNow.getTime() - currentTime.getTime();
+            const direction = diff > 0 ? 'too slow' : 'too fast';
+            timeMessage = `Note: Your clock is ${direction} by ${Math.abs(diff)} ms.`;
+        } else {
+            timeMessage = 'Note: Unable to fetch Berlin time. Displaying local time only.';
+        }
+    }
+
     // Initialize the app on page load
     onMount(async () => {
-        ntpTime = await fetchNtpTime();
+        // Update clocks every 50ms
+        setInterval(updateClocks, 50);
+
         localStart = new Date();
+        ntpTime = await fetchNtpTime();
 
         if (!ntpTime) {
-            alert('Failed to fetch Berlin time. Only local time will be displayed. Or try reloading.');
+            timeMessage = 'Failed to fetch Berlin time. Only local time will be displayed. Or try reloading.';
         }
 
         // Automatically set the default timer
         setTimer();
+
     });
 </script>
 
 <!-- UI -->
 <div>
     <h1>Timed Page Loader with Berlin Time</h1>
-    <p>Disclaimer: I made this quickly, so please test before relying on it!
+    <p>Disclaimer: I made this quickly, so please test before relying on it!</p>
 
     <p>
-        <strong>Local Time:</strong> {formatTimeWithMilliseconds(new Date(), localTimezone)} ({localTimezone})<br>
+        <strong>Local Time:</strong> {formatTimeWithMilliseconds(currentTime, localTimezone)} ({localTimezone})<br>
         <strong>Berlin Time:</strong> 
         {ntpTime 
-            ? formatTimeWithMilliseconds(new Date(ntpTime.getTime() + (new Date() - localStart)), berlinTimezone)
+            ? formatTimeWithMilliseconds(new Date(ntpTime.getTime() + (currentTime - localStart)), berlinTimezone)
             : 'Fetching Berlin time...'} 
         ({berlinTimezone})<br>
-        {timeDifference}
+        {timeMessage}
     </p>
 
     <form on:submit|preventDefault={setTimer}>
@@ -148,8 +168,6 @@ form {
 
     <p>{message}</p>
 
-    <p><a href="https://github.com/voboda/refresher">Source</a>
-
-    
+    <p><a href="https://github.com/voboda/refresher">Source</a></p>
 </div>
 
